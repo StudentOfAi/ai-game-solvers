@@ -1,2 +1,3 @@
-# AI Game Solvers — no external dependencies
-# All solvers use pure Python stdlib (random, heapq, dataclasses, enum, time, collections)
+# AI Game Solvers — pure Python stdlib, no external packages required
+# tkinter is included with macOS system Python
+# Just clone and run: python3 minesweeper-solver/minesweeper_solver.py

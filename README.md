@@ -1,75 +1,80 @@
 # AI Game Solvers
 
-Autonomous (0-player) game solvers demonstrating constraint satisfaction, heuristic search, and string matching algorithms. No human input — the AI plays to completion.
+Autonomous (0-player) game solvers with GUI windows. Each solver pops up a window on launch — clone and run, no setup needed.
 
 ## Solvers
 
 ### Minesweeper — Constraint Satisfaction Problem (CSP)
-**Directory:** `minesweeper-solver/`
+**Run:** `python3 minesweeper-solver/minesweeper_solver.py`
 
-The AI evaluates safe moves vs probabilistic risks using logic rules:
-- **Constraint propagation:** If a cell's number equals its flagged neighbors, remaining neighbors are safe
-- **Mine inference:** If remaining unrevealed neighbors equal remaining mine count, all are mines
-- **Probability estimation:** When no deterministic move exists, picks lowest-risk cell based on neighbor constraints and global mine density
-- **Flood fill:** Zero-adjacency cells cascade reveal
+GUI window pops up with a 10×10 grid. The solver auto-plays:
+- **Constraint propagation:** If cell's number equals flagged neighbors, remaining are safe
+- **Mine inference:** Remaining unrevealed cells equal mine count → all flagged
+- **Probability fallback:** Picks lowest-risk cell when no deterministic move exists
 
-```
-Move #1: Reveal (5,5) — initial safe cell
-Move #2: Reveal (4,4) — CSP safe (from 5,5)
-  ⚑ Flagged (3,3) — CSP mine inference from (4,4)
-✅ SOLVED in 33 moves
-```
+Controls: SPACE (next move) · A (auto-play) · R (new game)
 
 ### Pac-Man — A* Pathfinding & Ghost State Machines
-**Directory:** `pacman-ai/`
+**Run:** `python3 pacman-ai/pacman_ai.py`
 
-- **A\* pathfinding:** Pac-Man navigates to nearest dot using A* with Manhattan distance heuristic
-- **Ghost state machines:** Chase / Scatter / Frightened modes with timed transitions
-- **Blinky:** Direct chase (targets Pac-Man's position)
-- **Pinky:** Ambush (targets 4 tiles ahead of Pac-Man)
-- **BFS ghost navigation:** Ghosts use BFS to find paths to targets
-- **Collision detection:** Pac-Man caught on ghost contact (unless frightened)
+GUI window with ASCII maze. Pac-Man auto-navigates:
+- **A\* pathfinding:** Finds nearest dot with Manhattan distance heuristic
+- **Ghost AI:** Chase (target Pac-Man) / Scatter (corner retreat) / Frightened (random)
+- **Blinky:** Direct chase · **Pinky:** 4-tile ambush
 
-### Word Search — Matrix Manipulation & KMP String Matching
-**Directory:** `wordsearch-solver/`
+Controls: SPACE (next tick) · A (auto-play) · R (reset)
 
+### Word Search — KMP String Matching
+**Run:** `python3 wordsearch-solver/wordsearch_solver.py`
+
+GUI window with 14×14 grid. Words revealed one at a time:
 - **8-directional scanning:** N, NE, E, SE, S, SW, W, NW
-- **Brute-force scan:** O(n × m × 8 × w) — check every cell, every direction
-- **KMP (Knuth-Morris-Pratt):** O(n + m) per line — builds failure function, scans extracted direction lines
-- **Performance benchmark:** Compares both approaches with nanosecond timing
-- **Grid generation:** Words placed in random directions with overlap checking
+- **Brute-force vs KMP benchmark:** Shows timing comparison
+- **Color-coded results:** Each word highlighted in distinct color
+
+Controls: R (new puzzle)
+
+## Quick Start
+
+```bash
+git clone https://github.com/StudentOfAi/ai-game-solvers.git
+cd ai-game-solvers
+
+# Any of these pop up a window immediately:
+python3 minesweeper-solver/minesweeper_solver.py
+python3 pacman-ai/pacman_ai.py
+python3 wordsearch-solver/wordsearch_solver.py
+```
+
+## Requirements
+
+- Python 3.9+
+- tkinter (included with macOS Python — no pip install needed)
+- No external packages — pure stdlib
 
 ## Architecture
 
 ```
 ai-game-solvers/
 ├── minesweeper-solver/
-│   └── minesweeper_solver.py    — CSP + probability engine
+│   └── minesweeper_solver.py    — CSP + probability, tkinter canvas
 ├── pacman-ai/
-│   └── pacman_ai.py             — A* + ghost state machines
-└── wordsearch-solver/
-    └── wordsearch_solver.py     — KMP + brute-force comparison
+│   └── pacman_ai.py             — A* + ghost FSM, tkinter canvas
+├── wordsearch-solver/
+│   └── wordsearch_solver.py     — KMP + brute-force, tkinter canvas
+├── LICENSE
+├── README.md
+└── requirements.txt
 ```
-
-## Run
-
-```bash
-python3 minesweeper-solver/minesweeper_solver.py
-python3 pacman-ai/pacman_ai.py
-python3 wordsearch-solver/wordsearch_solver.py
-```
-
-All solvers use ANSI colors for terminal rendering. No external dependencies — pure Python stdlib.
 
 ## Algorithms
 
-| Solver | Algorithm | Complexity |
-|--------|-----------|------------|
-| Minesweeper | Constraint Satisfaction + Probability | O(cells × neighbors) per propagation pass |
-| Pac-Man | A* with Manhattan heuristic | O(b^d) worst case, ~O(n) with good heuristic |
-| Word Search (brute) | Naive directional scan | O(n × m × 8 × w) |
-| Word Search (KMP) | Knuth-Morris-Pratt | O(n + m) per line per word |
+| Solver | Algorithm | Key Technique |
+|--------|-----------|---------------|
+| Minesweeper | CSP + Probability | Constraint propagation, mine inference, flood fill |
+| Pac-Man | A* + State Machines | Manhattan heuristic, BFS ghost navigation, FSM transitions |
+| Word Search | KMP + Brute-force | Failure function, 8-directional line extraction, benchmark |
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT
