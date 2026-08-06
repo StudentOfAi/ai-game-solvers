@@ -1,42 +1,399 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Minesweeper CSP Solver</title>
-<style>html,body{height:100%;margin:0;background:#0b1020;color:#e6eefc;font-family:Inter,system-ui,sans-serif}#hud{position:fixed;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;font-size:14px}.label{font-weight:600;margin-right:6px}#stage{text-align:center;color:#a7b2cc;font-size:13px;position:fixed;top:34px;left:0;right:0}.wrap{display:flex;justify-content:center;align-items:center;min-height:100%;flex-direction:column;padding-top:60px}.btn{background:#1a2547;color:#e6eefc;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;margin:4px}.btn:hover{filter:brightness(1.2)}</style></head>
-<body><div id="hud"><div><span class="label">Move:</span><span id="move">0</span> <span class="label" style="margin-left:10px">Status:</span><span id="status">Ready</span></div><div>Minesweeper CSP</div></div><div id="stage">CSP + Probability Engine</div>
-<div class="wrap"><canvas id="cv" width="320" height="320" style="border-radius:8px;background:#0d0d1a"></canvas><div><button class="btn" id="solve">SOLVE</button><button class="btn" id="new">NEW GAME</button></div></div>
-<script>
-const GRID=10,MINES=12,CELL=32;
-const cv=document.getElementById("cv"),ctx=cv.getContext("2d");
-const NUM={1:"#4488ff",2:"#44ff44",3:"#ff4444",4:"#ff44ff",5:"#ffff44",6:"#44ffff",7:"#ff8800",8:"#ffffff"};
-let board,solver,moveCount=0,gameOver=false,autoTimer=null;
-function Cell(r,c){return{isMine:false,isRevealed:false,isFlagged:false,adjacent:0,row:r,col:c};}
-function genBoard(){board=[];for(let r=0;r<GRID;r++){board.push([]);for(let c=0;c<GRID;c++)board[r].push(Cell(r,c));}
-let pos=[...Array(GRID*GRID).keys()];for(let i=pos.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[pos[i],pos[j]]=[pos[j],pos[i]];}
-for(let i=0;i<MINES;i++){let r=Math.floor(pos[i]/GRID),c=pos[i]%GRID;board[r][c].isMine=true;}
-for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){if(!board[r][c].isMine){let cnt=0;for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){if(!dr&&!dc)continue;let nr=r+dr,nc=c+dc;if(nr>=0&&nr<GRID&&nc>=0&&nc<GRID&&board[nr][nc].isMine)cnt++;}board[r][c].adjacent=cnt;}}}
-function getNeighbors(r,c){let n=[];for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){if(!dr&&!dc)continue;let nr=r+dr,nc=c+dc;if(nr>=0&&nr<GRID&&nc>=0&&nc<GRID)n.push(board[nr][nc]);}return n;}
-function reveal(r,c){let cell=board[r][c];if(cell.isFlagged||cell.isRevealed)return true;if(cell.isMine){cell.isRevealed=true;return false;}
-cell.isRevealed=true;if(cell.adjacent===0){for(let n of getNeighbors(r,c)){if(!n.isRevealed&&!n.isFlagged)reveal(n.row,n.col);}}return true;}
-function isWon(){for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){if(!board[r][c].isMine&&!board[r][c].isRevealed)return false;}return true;}
-function nextMove(){for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){let cell=board[r][c];if(!cell.isRevealed||cell.adjacent===0)continue;
-let n=getNeighbors(r,c);let flagged=n.filter(x=>x.isFlagged).length;let unrev=n.filter(x=>!x.isRevealed&&!x.isFlagged);
-if(!unrev.length)continue;if(cell.adjacent===flagged)return[unrev[0].row,unrev[0].col,"reveal"];
-if(cell.adjacent-flagged===unrev.length)return[unrev[0].row,unrev[0].col,"flag"];}
-let bestP=1,best=null;for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){let cell=board[r][c];if(cell.isRevealed||cell.isFlagged)continue;
-let cs=[];for(let n of getNeighbors(r,c)){if(n.isRevealed&&n.adjacent>0){let f=getNeighbors(n.row,n.col).filter(x=>x.isFlagged).length;let u=getNeighbors(n.row,n.col).filter(x=>!x.isRevealed&&!x.isFlagged);if(u.length)cs.push((n.adjacent-f)/u.length);}}
-let p=cs.length?Math.max(...cs):MINES/(GRID*GRID);if(p<bestP){bestP=p;best=[r,c];}}return best?[best[0],best[1],"reveal"]:null;}
-function draw(hl){ctx.clearRect(0,0,cv.width,cv.height);for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){let cell=board[r][c];
-let x=c*CELL,y=r*CELL;ctx.fillStyle=hl&&hl[0]===r&&hl[1]===c?"#5a5a7a":cell.isFlagged?"#3a3a4a":!cell.isRevealed?"#3a3a4a":cell.isMine?"#ff4444":"#1a1a2a";
-ctx.fillRect(x,y,CELL,CELL);ctx.strokeStyle="#2a2a3a";ctx.strokeRect(x,y,CELL,CELL);
-if(cell.isFlagged){ctx.font="14px sans-serif";ctx.textAlign="center";ctx.fillText("🚩",x+16,y+20);}
-if(cell.isRevealed&&!cell.isMine&&cell.adjacent>0){ctx.fillStyle=NUM[cell.adjacent]||"#fff";ctx.font="bold 14px monospace";ctx.textAlign="center";ctx.fillText(cell.adjacent,x+16,y+21);}
-if(cell.isRevealed&&cell.isMine){ctx.font="14px sans-serif";ctx.fillText("💣",x+16,y+20);}}}
-function step(){if(gameOver)return;let mv=nextMove();if(!mv){document.getElementById("status").textContent="Stuck";return;}
-let[r,c,act]=mv;moveCount++;document.getElementById("move").textContent=moveCount;
-if(act==="reveal"){if(!reveal(r,c)){gameOver=true;draw([r,c]);document.getElementById("status").textContent="💥 HIT MINE";return;}}
-else{board[r][c].isFlagged=true;document.getElementById("status").textContent="⚑ Flagged ("+r+","+c+")";}
-draw([r,c]);if(isWon()){gameOver=true;document.getElementById("status").textContent="✅ SOLVED in "+moveCount+" moves!";}}
-function autoPlay(){step();if(!gameOver)autoTimer=setTimeout(autoPlay,200);}
-function reset(){if(autoTimer)clearTimeout(autoTimer);genBoard();moveCount=0;gameOver=false;document.getElementById("move").textContent=0;document.getElementById("status").textContent="Solving...";draw();autoTimer=setTimeout(autoPlay,500);}
-document.getElementById("solve").onclick=()=>{if(!gameOver&&!autoTimer)autoPlay();};
-document.getElementById("new").onclick=reset;
-genBoard();draw();setTimeout(autoPlay,500);
-</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Minesweeper Solver - Automated</title>
+    <style>
+        :root {
+            --bg-color: #0b1020;
+            --panel-bg: #1a2547;
+            --text-main: #e6eefc;
+            --text-dim: #a7b2cc;
+            --accent: #59ffa1;
+            --covered: #3a3a4a;
+            --revealed: #1a1a2a;
+            --mine: #ff4444;
+            --flag: #ffaa00;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        h1 { font-size: 24px; margin-bottom: 8px; }
+        .subtitle { color: var(--text-dim); margin-bottom: 30px; }
+
+        #hud {
+            display: flex;
+            justify-content: space-between;
+            background: var(--panel-bg);
+            padding: 12px 24px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stats span { font-weight: bold; color: var(--accent); }
+
+        #game-container {
+            position: relative;
+            display: inline-block;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            background: var(--panel-bg);
+        }
+
+        canvas {
+            display: block;
+            border-radius: 8px;
+        }
+
+        .controls {
+            margin-top: 30px;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        button {
+            background: var(--panel-bg);
+            color: white;
+            border: 1px solid #ffffff22;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #ffffff11;
+        }
+
+        #status {
+            margin-top: 15px;
+            font-size: 14px;
+            color: var(--accent);
+            height: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Minesweeper Solver</h1>
+        <p class="subtitle">CSP Constraint Propagation + Probability Engine</p>
+
+        <div id="hud">
+            <div class="stats">Moves: <span id="move-count">0</span></div>
+            <div class="stats">Status: <span id="status-text">Solving...</span></div>
+        </div>
+
+        <div id="game-container">
+            <canvas id="gameCanvas" width="400" height="400"></canvas>
+        </div>
+
+        <div id="status">Initializing engine...</div>
+
+        <div class="controls">
+            <button id="btn-new">NEW GAME</button>
+            <button id="btn-solve" style="background: #1a2547; border: 1px solid var(--accent)">SOLVE</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const moveCountEl = document.getElementById('move-count');
+        const statusTextEl = document.getElementById('status-text');
+        const statusMsg = document.getElementById('status');
+
+        const GRID_SIZE = 10;
+        const CELL_SIZE = canvas.width / GRID_SIZE;
+        const MINE_COUNT = 12;
+
+        class Cell {
+            constructor(r, c) {
+                this.r = r;
+                this.c = c;
+                this.isMine = false;
+                this.isRevealed = false;
+                this.isFlagged = false;
+                this.adjacentCount = 0;
+            }
+        }
+
+        class MinesweiperBoard {
+            constructor(rows, cols, mines) {
+                this.rows = rows;
+                this.cols = cols;
+                this.mineCount = mines;
+                this.grid = [];
+                this.generate();
+            }
+
+            generate() {
+                this.grid = Array.from({ length: this.rows }, (_, r) => 
+                    Array.from({ length: this.cols }, (_, c) => new Cell(r, c))
+                );
+                let positions = [];
+                for (let i = 0; i < this.rows * this.cols; i++) positions.push(i);
+                for (let i = positions.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [positions[i], positions[j]] = [positions[j], positions[i]];
+                }
+                for (let i = 0; i < this.mineCount; i++) {
+                    const pos = positions[i];
+                    this.grid[Math.floor(pos / this.cols)][pos % this.cols].isMine = true;
+                }
+                for (let r = 0; r < this.rows; r++) {
+                    for (let c = 0; c < this.cols; c++) {
+                        if (!this.grid[r][c].isMine) {
+                            this.grid[r][c].adjacentCount = this.countAdj(r, c);
+                        }
+                    }
+                }
+            }
+
+            countAdj(r, c) {
+                let cnt = 0;
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        const nr = r + dr, nc = c + dc;
+                        if (nr >= 0 && nr < this.rows && nc >= 0 && nc < this.cols && this.grid[nr][nc].isMine) {
+                            cnt++;
+                        }
+                    }
+                }
+                return cnt;
+            }
+
+            reveal(r, c) {
+                const cell = this.grid[r][c];
+                if (cell.isFlagged || cell.isRevealed) return true;
+                if (cell.isMine) {
+                    cell.isRevealed = true;
+                    return false;
+                }
+                cell.isRevealed = true;
+                if (cell.adjacentCount === 0) {
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                            if (dr === 0 && dc === 0) continue;
+                            const nr = r + dr, nc = c + dc;
+                            if (nr >= 0 && nr < this.rows && nc >= 0 && nc < this.cols) {
+                                this.reveal(nr, nc);
+                            }
+                        }
+                    }
+                }
+                return true;
+            }
+
+            flag(r, c) {
+                this.grid[r][c].isFlagged = true;
+            }
+
+            getNeighbors(r, c) {
+                const result = [];
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        const nr = r + dr, nc = c + dc;
+                        if (nr >= 0 && nr < this.rows && nc >= 0 && nc < this.cols) {
+                            result.push(this.grid[nr][nc]);
+                        }
+                    }
+                }
+                return result;
+            }
+
+            isWon() {
+                for (let r = 0; r < this.rows; r++) {
+                    for (let c = 0; c < this.cols; c++) {
+                        const cell = this.grid[r][c];
+                        if (!cell.isMine && !cell.isRevealed) return false;
+                    }
+                }
+                return true;
+            }
+        }
+
+        class MinesweiperSolver {
+            constructor(board) {
+                this.board = board;
+            }
+
+            nextMove() {
+                for (let r = 0; r < this.board.rows; r++) {
+                    for (let c = 0; c < this.board.cols; c++) {
+                        const cell = this.board.grid[r][c];
+                        if (!cell.isRevealed || cell.adjacentCount === 0) continue;
+                        const neighbors = this.board.getNeighbors(r, c);
+                        const flagged = neighbors.filter(n => n.isFlagged).length;
+                        const unrevealed = neighbors.filter(n => !n.isRevealed && !n.isFlagged);
+                        if (unrevealed.length === 0) continue;
+                        if (cell.adjacentCount === flagged) return [unrevealed[0].r, unrevealed[0].c, 'reveal'];
+                        if (cell.adjacentCount - flagged === unrevealed.length) return [unrevealed[0].r, unrevealed[0].c, 'flag'];
+                    }
+                }
+
+                let bestProb = 2.0;
+                let bestCell = null;
+                for (let r = 0; r < this.board.rows; r++) {
+                    for (let c = 0; c < this.board.cols; c++) {
+                        const cell = this.board.grid[r][c];
+                        if (cell.isRevealed || cell.isFlagged) continue;
+                        const prob = this._estimate(r, c);
+                        if (prob < bestProb) {
+                            bestProb = prob;
+                            bestCell = [r, c];
+                        }
+                    }
+                }
+                if (bestCell) return [bestCell[0], bestCell[1], 'reveal'];
+                return null;
+            }
+
+            _estimate(r, c) {
+                const constraints = [];
+                for (const n of this.board.getNeighbors(r, c)) {
+                    if (n.isRevealed && n.adjacentCount > 0) {
+                        const flagged = this.board.getNeighbors(n.r, n.c).filter(nn => nn.isFlagged).length;
+                        const unrev = this.board.getNeighbors(n.r, n.c).filter(nn => !nn.isRevealed && !nn.isFlagged);
+                        if (unrev.length > 0) {
+                            constraints.push((n.adjacentCount - flagged) / unrev.length);
+                        }
+                    }
+                }
+                if (constraints.length > 0) return Math.max(...constraints);
+                let unrevealedSum = 0;
+                for (let row of this.board.grid) {
+                    for (let cell of row) {
+                        if (!cell.isRevealed && !cell.isFlagged) unrevealedSum++;
+                    }
+                }
+                return this.board.mineCount / Math.max(unrevealedSum, 1);
+            }
+        }
+
+        let board = new MinesweiperBoard(10, 10, 12);
+        let solver = new MinesweiperSolver(board);
+        let isGameOver = false;
+        let moveCount = 0;
+        let solveInterval = null;
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let r = 0; r < board.rows; r++) {
+                for (let c = 0; c < board.cols; c++) {
+                    const cell = board.grid[r][c];
+                    const x = c * CELL_SIZE;
+                    const y = r * CELL_SIZE;
+
+                    if (cell.isFlagged) {
+                        ctx.fillStyle = '#ffaa00';
+                        ctx.fillRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+                        ctx.fillStyle = 'black';
+                        ctx.font = 'bold 16px Arial';
+                        ctx.fillText('F', x + CELL_SIZE/2, y + CELL_SIZE/2 + 5);
+                    } else if (cell.isRevealed) {
+                        ctx.fillStyle = cell.isMine ? '#ff4444' : '#1a1a2a';
+                        ctx.fillRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+                        if (cell.isMine) {
+                            ctx.fillStyle = 'white';
+                            ctx.font = 'bold 16px Arial';
+                            ctx.fillText('💣', x + CELL_SIZE/2, y + CELL_SIZE/2 + 5);
+                        } else if (cell.adjacentCount > 0) {
+                            ctx.fillStyle = '#ffffff';
+                            ctx.font = 'bold 16px Arial';
+                            ctx.fillText(cell.adjacentCount, x + CELL_SIZE/2, y + CELL_SIZE/2 + 5);
+                        }
+                    } else {
+                        ctx.fillStyle = '#3a3a4a';
+                        ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+                    }
+                }
+            }
+        }
+
+        function performStep() {
+            if (isGameOver) return;
+            const move = solver.nextMove();
+            if (!move) {
+                statusTextEl.textContent = "No moves found";
+                return;
+            }
+            const [r, c, action] = move;
+            moveCount++;
+            moveCountEl.textContent = moveCount;
+
+            if (action === 'reveal') {
+                const success = board.reveal(r, c);
+                if (!success) {
+                    isGameOver = true;
+                    statusTextEl.textContent = "Game Over!";
+                    msg("BOOM! You hit a mine.");
+                }
+            } else if (action === 'flag') {
+                board.flag(r, c);
+            }
+
+            if (board.isWon()) {
+                isGameOver = true;
+                statusTextEl.textContent = "Victory!";
+            }
+            draw();
+        }
+
+        function msg(text) {
+            statusMsg.textContent = text;
+        }
+
+        document.getElementById('btn-new').onclick = () => {
+            board = new MinesweiperBoard(10, 10, 12);
+            solver = new MinesweiperSolver(board);
+            isGameOver = false;
+            moveCount = 0;
+            moveCountEl.textContent = '0';
+            statusTextEl.textContent = "Solving...";
+            msg("New Game Started");
+            draw();
+        };
+
+        document.getElementById('btn-solve').onclick = () => {
+            if (isGameOver) {
+                msg("Game Over");
+            } else if (solveInterval) {
+                clearInterval(solveInterval);
+                solveInterval = null;
+                statusTextEl.textContent = "Paused";
+                msg("Auto-solver stopped.");
+            } else {
+                statusTextEl.textContent = "Solving...";
+                msg("Auto-solving started");
+                solveInterval = setInterval(performStep, 500);
+            }
+        };
+
+        draw();
+        msg("Ready. Click 'SOLVE' to start.");
+    </script>
+</body>
+</html>
