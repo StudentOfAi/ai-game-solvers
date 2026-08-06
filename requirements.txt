@@ -1,0 +1,2 @@
+# AI Game Solvers — no external dependencies
+# All solvers use pure Python stdlib (random, heapq, dataclasses, enum, time, collections)
