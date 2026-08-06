@@ -1,12 +1,21 @@
 # AI Game Solvers
 
 Autonomous (0-player) game solvers — all browser-based, zero dependencies.
-Clone and open in any browser. No Python, no tkinter, no build step.
+Live demos below — click to play instantly, no clone required.
+
+## Live Interactive Demos
+
+| Solver | Algorithm | Live Demo |
+|--------|-----------|-----------|
+| Minesweeper | CSP + Probability | [▶ Play](https://studentofai.github.io/ai-game-solvers/minesweeper-solver/) |
+| Pac-Man | A* + Ghost FSM | [▶ Play](https://studentofai.github.io/ai-game-solvers/pacman-ai/) |
+| Word Search | 8-Directional Scan | [▶ Play](https://studentofai.github.io/ai-game-solvers/wordsearch-solver/) |
+| HTML Snake | BFS + Flood-fill | [▶ Play](https://studentofai.github.io/ai-game-solvers/html-snake-engine/) |
 
 ## Solvers
 
 ### Minesweeper — CSP + Probability Engine
-**Run:** `open minesweeper-solver/index.html`
+**Play:** https://studentofai.github.io/ai-game-solvers/minesweeper-solver/
 
 Canvas grid auto-plays minesweeper:
 - **Constraint propagation:** If cell's number equals flagged neighbors, remaining are safe
@@ -16,7 +25,7 @@ Canvas grid auto-plays minesweeper:
 Controls: SOLVE (auto-play) · NEW GAME (reset)
 
 ### Pac-Man — A* Pathfinding & Ghost State Machines
-**Run:** `open pacman-ai/index.html`
+**Play:** https://studentofai.github.io/ai-game-solvers/pacman-ai/
 
 Canvas maze with Pac-Man auto-navigating:
 - **A* pathfinding:** Finds nearest dot with Manhattan distance heuristic
@@ -26,7 +35,7 @@ Canvas maze with Pac-Man auto-navigating:
 Controls: PLAY/PAUSE · RESET
 
 ### Word Search — 8-Directional Matrix Scanner
-**Run:** `open wordsearch-solver/index.html`
+**Play:** https://studentofai.github.io/ai-game-solvers/wordsearch-solver/
 
 Canvas letter grid with 10 categories (200 words total):
 - **8-directional scanning:** N, NE, E, SE, S, SW, W, NW
@@ -37,7 +46,7 @@ Canvas letter grid with 10 categories (200 words total):
 Controls: Click category to switch · NEW PUZZLE · SOLVE
 
 ### HTML Snake — BFS Pathfinding & Canvas State Mechanics
-**Run:** `open html-snake-engine/index.html`
+**Play:** https://studentofai.github.io/ai-game-solvers/html-snake-engine/
 
 Browser-based snake game with 0-player AI auto-pilot:
 - **BFS pathfinding:** Shortest path to food each tick, body-avoidance
@@ -59,6 +68,8 @@ open pacman-ai/index.html
 open wordsearch-solver/index.html
 open html-snake-engine/index.html
 ```
+
+Or just play online: https://studentofai.github.io/ai-game-solvers/
 
 ## Requirements
 
