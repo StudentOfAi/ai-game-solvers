@@ -1,38 +1,40 @@
 # AI Game Solvers
 
-Autonomous (0-player) game solvers with GUI windows. Each solver pops up a window on launch — clone and run, no setup needed.
+Autonomous (0-player) game solvers — all browser-based, zero dependencies.
+Clone and open in any browser. No Python, no tkinter, no build step.
 
 ## Solvers
 
-### Minesweeper — Constraint Satisfaction Problem (CSP)
-**Run:** `python3 minesweeper-solver/minesweeper_solver.py`
+### Minesweeper — CSP + Probability Engine
+**Run:** `open minesweeper-solver/index.html`
 
-GUI window pops up with a 10×10 grid. The solver auto-plays:
+Canvas grid auto-plays minesweeper:
 - **Constraint propagation:** If cell's number equals flagged neighbors, remaining are safe
 - **Mine inference:** Remaining unrevealed cells equal mine count → all flagged
 - **Probability fallback:** Picks lowest-risk cell when no deterministic move exists
 
-Controls: SPACE (next move) · A (auto-play) · R (new game)
+Controls: SOLVE (auto-play) · NEW GAME (reset)
 
 ### Pac-Man — A* Pathfinding & Ghost State Machines
-**Run:** `python3 pacman-ai/pacman_ai.py`
+**Run:** `open pacman-ai/index.html`
 
-GUI window with ASCII maze. Pac-Man auto-navigates:
-- **A\* pathfinding:** Finds nearest dot with Manhattan distance heuristic
-- **Ghost AI:** Chase (target Pac-Man) / Scatter (corner retreat) / Frightened (random)
+Canvas maze with Pac-Man auto-navigating:
+- **A* pathfinding:** Finds nearest dot with Manhattan distance heuristic
+- **Ghost AI:** Chase (target Pac-Man) / Scatter (corner retreat)
 - **Blinky:** Direct chase · **Pinky:** 4-tile ambush
 
-Controls: SPACE (next tick) · A (auto-play) · R (reset)
+Controls: PLAY/PAUSE · RESET
 
-### Word Search — KMP String Matching
-**Run:** `python3 wordsearch-solver/wordsearch_solver.py`
+### Word Search — 8-Directional Matrix Scanner
+**Run:** `open wordsearch-solver/index.html`
 
-GUI window with 14×14 grid. Words revealed one at a time:
+Canvas letter grid with 10 categories (200 words total):
 - **8-directional scanning:** N, NE, E, SE, S, SW, W, NW
-- **Brute-force vs KMP benchmark:** Shows timing comparison
-- **Color-coded results:** Each word highlighted in distinct color
+- **Word highlighting:** Found words highlighted in distinct colors
+- **Categories:** Animals, Space, Food & Drinks, Technology, Movies, Sports, Science, Nature, Music, Travel
+- **Live word list:** Crossed out as found
 
-Controls: R (new puzzle)
+Controls: Click category to switch · NEW PUZZLE · SOLVE
 
 ### HTML Snake — BFS Pathfinding & Canvas State Mechanics
 **Run:** `open html-snake-engine/index.html`
@@ -51,34 +53,37 @@ Controls: Arrows/WASD (move) · 0 (AI Auto-Pilot) · Esc (pause) · End (wrap) �
 git clone https://github.com/StudentOfAi/ai-game-solvers.git
 cd ai-game-solvers
 
-# Python solvers (pop up a window):
-python3 minesweeper-solver/minesweeper_solver.py
-python3 pacman-ai/pacman_ai.py
-python3 wordsearch-solver/wordsearch_solver.py
-
-# Browser-based snake (no dependencies):
+# All games open in any browser — no dependencies:
+open minesweeper-solver/index.html
+open pacman-ai/index.html
+open wordsearch-solver/index.html
 open html-snake-engine/index.html
 ```
 
 ## Requirements
 
-- Python 3.9+ (for minesweeper, pacman, wordsearch)
-- tkinter (included with macOS Python — no pip install needed)
-- Any modern browser (for HTML snake — no build step, no server)
-- No external packages — pure stdlib + vanilla JS
+- Any modern browser (Chrome, Safari, Firefox, Edge)
+- No build step, no server, no dependencies — pure HTML5 + Canvas + vanilla JS
 
 ## Architecture
 
 ```
 ai-game-solvers/
 ├── minesweeper-solver/
-│   └── minesweeper_solver.py    — CSP + probability, tkinter canvas
+│   ├── index.html              — CSP + probability, canvas grid
+│   └── icon.png                — Game screenshot icon
 ├── pacman-ai/
-│   └── pacman_ai.py             — A* + ghost FSM, tkinter canvas
+│   ├── index.html              — A* + ghost FSM, canvas maze
+│   └── icon.png                — Game screenshot icon
 ├── wordsearch-solver/
-│   └── wordsearch_solver.py     — KMP + brute-force, tkinter canvas
+│   ├── index.html              — 8-directional scanner, 10 categories, 200 words
+│   └── icon.png                — Game screenshot icon
 ├── html-snake-engine/
-│   └── index.html               — BFS pathfinding, canvas rendering, Web Audio
+│   ├── index.html              — BFS pathfinding, canvas rendering, Web Audio
+│   └── icon.png                — Game screenshot icon
+├── minesweeper-solver/minesweeper_solver.py  — Legacy Python (tkinter, requires macOS fix)
+├── pacman-ai/pacman_ai.py                    — Legacy Python (tkinter, requires macOS fix)
+├── wordsearch-solver/wordsearch_solver.py   — Legacy Python (tkinter, requires macOS fix)
 ├── LICENSE
 ├── README.md
 └── requirements.txt
@@ -90,7 +95,7 @@ ai-game-solvers/
 |--------|-----------|---------------|
 | Minesweeper | CSP + Probability | Constraint propagation, mine inference, flood fill |
 | Pac-Man | A* + State Machines | Manhattan heuristic, BFS ghost navigation, FSM transitions |
-| Word Search | KMP + Brute-force | Failure function, 8-directional line extraction, benchmark |
+| Word Search | 8-Directional Scan | Grid generation, directional string matching, word highlighting |
 | HTML Snake | BFS + Flood-fill | Shortest-path to food, open-space survival heuristic, canvas rendering |
 
 ## License

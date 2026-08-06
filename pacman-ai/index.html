@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Search Solver — KMP & A*</title>
+    <style>
+        :root {
+            --bg-color: #0b1020;
+            --wall-color: #1a1a4a;
+            --dot-color: #ffdd44;
+            --pacman-color: #ffee00;
+            --blinky-color: #ff0000;
+            --pinky-color: #ff7777;
+            --frightened-color: #4444ff;
+            --text-light: #cccccc;
+            --accent-color: #44ff44;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: white;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1 { margin-bottom: 5px; }
+        p { color: var(--text-light); font-size: 0.9rem; margin-bottom: 20px; }
+
+        canvas {
+            background-color: #000;
+            border: 2px solid #1a1a4a;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .ui-panel {
+            margin: 20px 0;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .stats {
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--accent-color);
+            font-size: 1rem;
+        }
+
+        button {
+            padding: 8px 16px;
+            font-size: 1rem;
+            cursor: pointer;
+            background-color: #2a3a50;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        button:hover { background-color: #3d4e6b; }
+        button:active { transform: scale(0.98); }
+
+        #word-list {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            max-width: 600px;
+            color: #888;
+        }
+
+        .word-item {
+            font-weight: bold;
+            padding: 2px 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="color: white;">Word Search Solver</h1>
+        <p>Matrix Manipulation · 8-Directional Scanning · A* Pathfinding | KMP Matching</p>
+
+        <div class="ui-panel">
+            <div id="stats-box" class="stats">
+                Loading metrics...
+            </div>
+            <div>
+                <button id="playPauseBtn">PAUSE</button>
+                <button id="resetBtn">RESET</button>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="word-list"></div>
+
+        <p id="status-text" style="margin-top: 20px;">Initializing...</p>
+    </div>
+
+    <script>
+        const CONFIG = {
+            gridSize: 14,
+            cellSize: 35,
+            bgColor: '#0b1020',
+            wallColor: '#1a1a4a',
+            dotColor: '#ffdd44',
+            pacmanColor: '#ffee00',
+            blinkyColor: '#ff0000',
+            pinkyColor: '#ff7777',
+            frightenedColor: '#4444ff'
+        };
+
+        const MAZE_TEMPLATE = [
+            "###################",
+            "#........#........#",
+            "#.##.###.#.###.##.#",
+            "#.................#",
+            "#.##.#.#####.#.##.#",
+            "#....#...#...#....#",
+            "####.###.#.###.####",
+            "    #.......#    ",
+            "####.#######.####",
+            "#.................#",
+            "#.##.###.#.###.##.#",
+            "#....#...#...#....#",
+            "#.##.#.#####.#.##.#",
+            "#.................#",
+            "###################"
+        ];
+
+        const DIRECTIONS = [
+            [0, 1], [0, -1], [1, 0], [-1, 0],
+            [1, 1], [1, -1], [-1, 1], [-1, -1]
+        ];
+
+        class WordSearchGrid {
+            constructor(size) {
+                this.size = size;
+                this.grid = Array.from({ length: size }, () => Array(size).fill(' '));
+                this.words = ["PYTHON", "ALGORITHM", "KMP", "RECURSION", "SEARCH"]; 
+                this.init();
+            }
+
+            init() {
+                const placements = [
+                    {word: 'PYTHON', pos: [1, 3], dir: [0, 1]},
+                    {word: 'SEARCH', pos: [3, 4], dir: [1, 0]},
+                    {word: 'KMP', pos: [5, 10], dir: [0, -1]}
+                ];
+
+                placements.forEach(p => {
+                    for (let i = 0; i < p.word.length; i++) {
+                        const r = p.pos[0] + p.dir[0] * i;
+                        const c = p.pos[1] + p.dir[1] * i;
+                        if (this.isValid(r, c)) {
+                            this.grid[r][c] = p.word[i];
+                        }
+                    }
+                });
+
+                for (let r = 0; r < this.size; r++) {
+                    for (let c = 0; c < this.size; c++) {
+                        if (this.grid[r][c] === ' ') {
+                            this.grid[r][c] = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+                        }
+                    }
+                }
+            }
+
+            isValid(r, c) {
+                return r >= 0 && r < this.size && c >= 0 && c < this.size;
+            }
+
+            extractLines() {
+                const lines = [];
+                for (let d of DIRECTIONS) {
+                    for (let r = 0; r < this.size; r++) {
+                        for (let c = 0; c < this.size; c++) {
+                            let text = "";
+                            let cells = [];
+                            let currR = r, currC = c;
+                            while (this.isValid(currR, currC) && this.grid[currR][currC] !== '#') {
+                                text += this.grid[currR][currC];
+                                cells.push([currR, currC]);
+                                currR += d[0];
+                                currC += d[1];
+                            }
+                            if (text.length >= 2) {
+                                lines.push({ text, cells, dir: d });
+                            }
+                        }
+                    }
+                }
+                return lines;
+            }
+
+            kmpScan(words) {
+                const lines = this.extractLines();
+                let found = [];
+                for (let word of words) {
+                    for (let line of lines) {
+                        const matches = this.kmpSearchData(word, line.text);
+                        for (let ms of matches) {
+                            found.push({
+                                word,
+                                cells: line.cells.slice(ms, ms + word.length),
+                                pos: line.cells[ms]
+                            });
+                        }
+                    }
+                }
+                return found;
+            }
+
+            kmpSearchData(pattern, text) {
+                let matches = [];
+                if (!pattern) return matches;
+                const fail = new Array(pattern.length).fill(0);
+                for (let i = 1, j = 0; i < pattern.length; i++) {
+                    while (j > 0 && pattern[i] !== pattern[j]) j = fail[j - 1];
+                    if (pattern[i] === pattern[j]) j++;
+                    fail[i] = j;
+                }
+                for (let i = 0, j = 0; i < text.length; i++) {
+                    while (j > 0 && text[i] !== pattern[j]) j = fail[j - 1];
+                    if (text[i] === pattern[j]) j++;
+                    if (j === pattern.length) {
+                        matches.push(i - pattern.length + 1);
+                        j = fail[j - 1];
+                    }
+                }
+                return matches;
+            }
+
+            bruteForce() {
+                let found = [];
+                for (let word of this.words) {
+                    for (let r = 0; r < this.size; r++) {
+                        for (let c = 0; c < this.size; c++) {
+                            for (let d of DIRECTIONS) {
+                                let ok = true;
+                                for (let i = 0; i < word.length; i++) {
+                                    const nr = r + d[0]*i, nc = c + d[1]*i;
+                                    if (!this.isValid(nr, nc) || this.grid[nr][nc] !== word[i]) {
+                                        ok = false; break;
+                                    }
+                                }
+                                if (ok) found.push({ word, pos: [r, c] });
+                            }
+                        }
+                    }
+                }
+                return found;
+            }
+        }
+
+        class GameState {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.statsBox = document.getElementById('stats-box');
+                this.statusText = document.getElementById('status-text');
+                this.wordListEl = document.getElementById('word-list');
+
+                this.gridData = new WordSearchGrid(CONFIG.gridSize);
+                this.pacman = { x: 7, y: 10 };
+                this.ghosts = [
+                    { x: 1, y: 1, color: CONFIG.blinkyColor, state: 'CHASE', name: 'Blinky' },
+                    { x: 12, y: 12, color: CONFIG.pinkyColor, state: 'CHASE', name: 'Pinky' }
+                ];
+                this.foundWords = [];
+                this.dots = [];
+                this.gameActive = true;
+                this.isPaused = false;
+
+                this.init();
+            }
+
+            init() {
+                this.canvas.width = CONFIG.gridSize * CONFIG.cellSize;
+                this.canvas.height = CONFIG.gridSize * CONFIG.cellSize;
+                this.setupLevel();
+            }
+
+            setupLevel() {
+                this.pacman = { x: 7, y: 10 };
+                this.ghosts = [
+                    { x: 1, y: 1, color: CONFIG.blinkyColor, state: 'CHASE', name: 'Blinky' },
+                    { x: 12, y: 12, color: CONFIG.pinkyColor, state: 'CHASE', name: 'Pinky' }
+                ];
+                this.foundWords = [];
+                this.dots = [];
+
+                for(let r=0; r<CONFIG.gridSize; r++) {
+                    for(let c=0; c<CONFIG.gridSize; c++) {
+                        if (MAZE_TEMPLATE[r][c] === '.') {
+                            this.dots.push({x: c, y: r, collected: false});
+                        }
+                    }
+                }
+            }
+
+            draw() {
+                const ctx = this.ctx;
+                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                for (let r = 0; r < CONFIG.gridSize; r++) {
+                    for (let c = 0; c < CONFIG.gridSize; c++) {
+                        const x = c * CONFIG.cellSize;
+                        const y = r * CONFIG.cellSize;
+                        
+                        ctx.fillStyle = MAZE_TEMPLATE[r][c] === '#' ? CONFIG.wallColor : '#000';
+                        ctx.fillRect(x, y, CONFIG.cellSize, CONFIG.cellSize);
+                        
+                        if (MAZE_TEMPLATE[r][c] === '.') {
+                            const dot = this.dots.find(d => d.x === c && d.y === r);
+                            if (dot && !dot.collected) {
+                                ctx.fillStyle = CONFIG.dotColor;
+                                ctx.beginPath();
+                                ctx.arc(x + CONFIG.cellSize/2, y + CONFIG.cellSize/2, 3, 0, Math.PI*2);
+                                ctx.fill();
+                            }
+                        }
+
+                        ctx.fillStyle = '#fff';
+                        ctx.font = '14px Courier New';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(this.gridData.grid[r][c], x + CONFIG.cellSize/2, y + CONFIG.cellSize * 0.8);
+                    }
+                }
+
+                ctx.fillStyle = CONFIG.pacmanColor;
+                ctx.beginPath();
+                ctx.arc(this.pacman.x * CONFIG.cellSize + (CONFIG.cellSize/2), this.pacman.y * CONFIG.cellSize + (CONFIG.cellSize/2), 14, 0, Math.PI*2);
+                ctx.fill();
+
+                this.ghosts.forEach(g => {
+                    ctx.fillStyle = g.color;
+                    ctx.beginPath();
+                    ctx.arc(g.x * CONFIG.cellSize + (CONFIG.cellSize/2), g.y * CONFIG.cellSize + (CONFIG.cellSize/2), 10, 0, Math.PI*2);
+                    ctx.fill();
+                });
+
+                this.foundWords.forEach(fw => {
+                    const [r, c] = fw.pos;
+                    if (this.gridData.grid[r][c]) {
+                        ctx.strokeStyle = 'white';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(c * CONFIG.cellSize + 5, r * CONFIG.cellSize + 5, CONFIG.cellSize - 10, CONFIG.cellSize - 10);
+                    }
+                });
+            }
+
+            step() {
+                if (this.isPaused || !this.gameActive) return;
+
+                // Simplified A* / Greedy Pathfinding for Pacman to nearest dot
+                const target = this.dots.find(d => !d.collected);
+                if (target) {
+                    const dx = Math.sign(target.x - this.pacman.x);
+                    const dy = Math.sign(target.y - this.pacman.y);
+                    if (this.isValidMove(this.pacman.x + dx, this.pacman.y + dy)) {
+                        this.pacman.x += dx;
+                        this.pacman.y += dy;
+                    }
+                }
+
+                // Ghost AI implementation (Chase/Scatter)
+                this.ghosts.forEach(g => {
+                    if (g.state === 'CHASE') {
+                        const dx = Math.sign(this.pacman.x - g.x);
+                        const dy = Math.sign(this.pacman.y - g.y);
+                        if (this.isValidMove(g.x + dx, g.y + dy)) {
+                            g.x += dx;
+                            g.y += dy;
+                        }
+                    } else if (g.state === 'SCATTER') {
+                        const move = [[0,1],[0,-1],[1,0],[-1,0]][Math.floor(Math.random()*4)];
+                        if (this.isValidMove(g.x + move[0], g.y + move[1])) {
+                            g.x += move[0];
+                            g.y += move[1];
+                        }
+                    }
+                });
+
+                // Collision & Scoring
+                this.ghosts.forEach(g => {
+                    if (g.x === this.pacman.x && g.y === this.pacman.y) {
+                        if (g.state === 'FRIGHTENED') {
+                            g.state = 'CHASE';
+                            g.timer = 20;
+                        } else {
+                            this.gameActive = false;
+                            this.statusText.innerText = `💀 Caught by ${g.name}!`;
+                            this.statusText.style.color = CONFIG.blinkyColor;
+                        }
+                    }
+                });
+
+                // Collect Dots
+                this.dots.forEach(d => {
+                    if (!d.collected && d.x === this.pacman.x && d.y === this.pacman.y) {
+                        d.collected = true;
+                        this.statusText.innerText = `Dots Collected: ${this.dots.filter(dot => dot.collected).length}`;
+                    }
+                });
+
+                this.draw();
+            }
+
+            isValidMove(x, y) {
+                return MAZE_TEMPLATE[y][x] === '.';
+            }
+
+            run() {
+                const loop = () => {
+                    if (this.gameActive) {
+                        this.step();
+                        setTimeout(() => requestAnimationFrame(loop), 100);
+                    } else if (!this.isPaused) {
+                        requestAnimationFrame(loop);
+                    }
+                };
+                requestAnimationFrame(loop);
+            }
+        }
+
+        // Execution & Analysis
+        const game = new GameState();
+        game.statusText.innerText = "Game Active";
+
+        const startBF = performance.now();
+        game.gridData.bruteForce();
+        const endBF = performance.now();
+        
+        const startKMP = performance.now();
+        game.gridData.kmpScan(game.gridData.words);
+        const endKMP = performance.now();
+
+        const bfTime = (endBF - startBF).toFixed(2);
+        const kmpTime = (endKMP - startKMP).toFixed(2);
+        const speedup = (bfTime / (kmpTime || 1)).toFixed(2);
+
+        document.getElementById('stats-box').innerText = `BF: ${bfTime}ms | KMP: ${kmpTime}ms | Speedup: ${speedup}x`;
+        game.wordListEl.innerHTML = game.gridData.words.map(w => `<span class="word-item">${w}</span>`).join('');
+
+        document.getElementById('resetBtn').onclick = () => {
+            game.setupLevel();
+            game.statusText.innerText = "Game Active";
+            game.statusText.style.color = 'white';
+            game.gameActive = true;
+        };
+
+        let currentPaused = false;
+        const togglePause = () => {
+            currentPaused = !currentPaused;
+            game.isPaused = currentPaused;
+            document.getElementById('playPauseBtn').innerText = currentPaused ? 'PLAY' : 'PAUSE';
+        };
+        document.getElementById('playPauseBtn').onclick = togglePause;
+
+        game.run();
+    }
+    </script>
+</body>
+</html>
+```

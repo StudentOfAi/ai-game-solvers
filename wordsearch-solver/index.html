@@ -1,0 +1,183 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Word Search Solver</title>
+<style>
+html,body{height:100%;margin:0;background:#0b1020;color:#e6eefc;font-family:Inter,system-ui,sans-serif}
+#hud{position:fixed;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;font-size:14px;gap:8px;align-items:center;z-index:10}
+.label{font-weight:600;margin-right:4px}
+#stage{text-align:center;color:#a7b2cc;font-size:13px;position:fixed;top:36px;left:0;right:0}
+.wrap{display:flex;justify-content:center;align-items:flex-start;min-height:100%;gap:12px;padding-top:70px;padding-bottom:20px}
+.left-panel,.right-panel{display:flex;flex-direction:column;gap:6px}
+.btn{background:#1a2547;color:#e6eefc;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px}
+.btn:hover{filter:brightness(1.3)}
+.btn.active{background:#2a4577;border:1px solid #4488ff}
+canvas{border-radius:10px;background:#0d0d1a;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+#wordlist{width:170px;font-size:12px;color:#a7b2cc;max-height:440px;overflow-y:auto}
+.wcat{font-weight:700;color:#e6eefc;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:6px 0 4px 0;padding-bottom:2px;border-bottom:1px solid #1a2547}
+.witem{padding:2px 4px;border-radius:3px;margin:1px 0;display:flex;align-items:center;gap:5px}
+.witem.found{text-decoration:line-through;opacity:0.5}
+.wdot{width:7px;height:7px;border-radius:4px;flex-shrink:0}
+</style></head>
+<body>
+<div id="hud">
+<div><span class="label">Found:</span><span id="found">0</span>/<span id="total">0</span></div>
+<div>Word Search AI</div>
+<div><span class="label">Status:</span><span id="status">Ready</span></div>
+</div>
+<div id="stage">8-Directional Matrix Scanner</div>
+<div class="wrap">
+<div class="left-panel"><div id="catbtns"></div></div>
+<canvas id="cv" width="480" height="480"></canvas>
+<div class="right-panel">
+<div id="wordlist"></div>
+<button class="btn" id="newp">NEW PUZZLE</button>
+<button class="btn" id="solve">SOLVE</button>
+</div>
+</div>
+<script>
+const CATEGORIES = {"Animals": ["RABBIT", "SALMON", "PANTHER", "PENGUIN", "OCTOPUS", "GORILLA", "LIZARD", "FLAMINGO", "TIGER", "ELEPHANT", "HAMSTER", "CHEETAH", "GIRAFFE", "PARROT", "TURTLE", "KANGAROO", "DOLPHIN", "JAGUAR", "BUTTERFLY", "FALCON"], "Space": ["ROCKET", "PLANET", "COMET", "PULSAR", "DWARF", "QUASAR", "PLUTO", "TITAN", "COSMOS", "VENUS", "SATURN", "SOLAR", "GAMMA", "PROBE", "LIGHT", "METEOR", "ASTRO", "LUNAR", "SPACE", "NEBULA"], "Food & Drinks": ["PIZZA", "BURGER", "SUSHI", "PASTA", "SALAD", "BREAD", "COFFEE", "YOGURT", "MANGO", "STEAK", "GRAPE", "LEMON", "HONEY", "COOKIE", "WAFFLE", "TACO", "BAGEL", "NOODLE", "SMOOTHIE", "CHEESE"], "Technology": ["LAPTOP", "PYTHON", "ROBOT", "PIXEL", "CLOUD", "SERVER", "BINARY", "CIPHER", "BUFFER", "KERNEL", "SCRIPT", "VECTOR", "QUANTUM", "SOCKET", "ROUTER", "DATA", "CODE", "BYTE", "ALGORITHM", "NETWORK"], "Movies": ["MATRIX", "AVATAR", "TITANIC", "INCEPTION", "JAWS", "GLADIATOR", "INTERSTELLAR", "FROZEN", "MOANA", "COCO", "RAMBO", "SHREK", "UP", "BRAVE", "ALIEN", "DUNE", "AMELIE", "PARASITE", "JOKER", "ENCODE"], "Sports": ["SOCCER", "TENNIS", "HOCKEY", "CRICKET", "BOXING", "RUGBY", "SKIING", "SURFING", "GOLF", "CYCLING", "BASKETBALL", "BASEBALL", "VOLLEYBALL", "SWIMMING", "RUNNING", "CLIMBING", "DIVING", "FENCING", "ARCHERY", "ROWING"], "Science": ["ATOM", "GENOME", "FUSION", "GRAVITY", "NEURON", "PHOTON", "ENZYME", "QUARK", "PROTON", "ELECTRON", "MOLECULE", "OXYGEN", "HYDROGEN", "CARBON", "PLASMA", "VELOCITY", "ENTROPY", "MAGNETIC", "OSCILLATION", "RELATIVITY"], "Nature": ["RIVER", "OCEAN", "FOREST", "DESERT", "CANYON", "GLACIER", "VOLCANO", "MEADOW", "TUNDRA", "SAVANNA", "WATERFALL", "THUNDER", "RAINBOW", "AURORA", "BREEZE", "MARSH", "VALLEY", "SUMMIT", "GEYSER", "TIDAL"], "Music": ["PIANO", "GUITAR", "VIOLIN", "DRUMS", "FLUTE", "CELLO", "HARP", "TROMBONE", "BANJO", "SAXOPHONE", "MELODY", "RHYTHM", "HARMONY", "CHORD", "TEMPO", "BASS", "TREBLE", "OCTAVE", "CADENCE", "SONATA"], "Travel": ["TOKYO", "PARIS", "LONDON", "DUBAI", "ROME", "VENICE", "BANGKOK", "CAIRO", "LISBON", "BERLIN", "AMSTERDAM", "BARCELONA", "SYDNEY", "VIENNA", "PRAGUE", "ISTANBUL", "ATHENS", "MADRID", "SEATTLE", "HAVANA"]};
+const COLORS=["#ff4444","#44ff44","#4488ff","#ffff44","#ff44ff","#44ffff","#ff8800","#ff69b4","#8aff8a","#88aaff","#ffaa44","#aaffff","#ff44aa","#aaff44","#44aaff","#ffdd00","#dd44ff","#44ffdd","#ff6666","#66ff66"];
+const GRID=16,TS=30;
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d");
+const DIRS=[[0,1],[1,0],[1,1],[1,-1],[0,-1],[-1,0],[-1,-1],[-1,1]];
+let curCat="Animals",grid,placed,foundWords,solveIdx,timer;
+
+function init(cat){
+curCat=cat;
+let words=CATEGORIES[cat];
+// Start with EMPTY grid (null cells), then place words, then fill remaining with random letters
+grid=[];
+for(let r=0;r<GRID;r++){grid.push([]);for(let c=0;c<GRID;c++)grid[r].push(null);}
+placed=[];foundWords=new Set();solveIdx=0;
+
+for(let w of words){
+let ok=false;
+for(let attempt=0;attempt<500&&!ok;attempt++){
+let d=DIRS[Math.floor(Math.random()*DIRS.length)];
+let r=Math.floor(Math.random()*GRID),c=Math.floor(Math.random()*GRID);
+let er=r+d[0]*(w.length-1),ec=c+d[1]*(w.length-1);
+if(er<0||er>=GRID||ec<0||ec>=GRID)continue;
+// Check if word fits: each cell must be null (empty) or already matching the word's letter
+let fits=true;
+for(let i=0;i<w.length;i++){
+let nr=r+d[0]*i,nc=c+d[1]*i;
+if(grid[nr][nc]!==null && grid[nr][nc]!==w[i]){fits=false;break;}
+}
+if(fits){
+for(let i=0;i<w.length;i++){grid[r+d[0]*i][c+d[1]*i]=w[i];}
+placed.push({word:w,r:r,c:c,dir:d});
+ok=true;
+}
+}
+}
+// Fill remaining null cells with random letters
+for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){
+if(grid[r][c]===null)grid[r][c]=String.fromCharCode(65+Math.floor(Math.random()*26));
+}
+document.getElementById("total").textContent=placed.length;
+document.getElementById("found").textContent=0;
+document.getElementById("status").textContent="Ready";
+renderWordList();
+draw();
+}
+
+function renderWordList(){
+let html='<div class="wcat">'+curCat+' ('+placed.length+' words)</div>';
+let i=0;
+for(let p of placed){
+let c=COLORS[i%COLORS.length];
+let cls=foundWords.has(p.word)?"found":"";
+html+='<div class="witem '+cls+'" id="wi_'+i+'"><span class="wdot" style="background:'+c+'"></span>'+p.word+'</div>';
+i++;
+}
+document.getElementById("wordlist").innerHTML=html;
+}
+
+function draw(){
+ctx.clearRect(0,0,cv.width,cv.height);
+for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){
+let x=c*TS,y=r*TS;
+ctx.fillStyle="#1a1a2a";ctx.fillRect(x,y,TS,TS);
+ctx.strokeStyle="#2a2a3a";ctx.strokeRect(x,y,TS,TS);
+}
+// Draw all found word highlights
+let idx=0;
+for(let p of placed){
+if(foundWords.has(p.word)){
+let c=COLORS[idx%COLORS.length];
+ctx.fillStyle=c;ctx.globalAlpha=0.25;
+for(let i=0;i<p.word.length;i++){
+let cr=p.r+p.dir[0]*i,cc=p.c+p.dir[1]*i;
+ctx.fillRect(cc*TS,cr*TS,TS,TS);
+}
+ctx.globalAlpha=1;
+for(let i=0;i<p.word.length;i++){
+let cr=p.r+p.dir[0]*i,cc=p.c+p.dir[1]*i;
+ctx.fillStyle=c;ctx.font="bold 14px monospace";ctx.textAlign="center";
+ctx.fillText(grid[cr][cc],cc*TS+TS/2,cr*TS+TS/2+5);
+}
+}
+idx++;
+}
+// Draw un-found letters
+for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){
+let isFound=false;
+for(let p of placed){if(foundWords.has(p.word)){
+for(let i=0;i<p.word.length;i++){if(p.r+p.dir[0]*i===r&&p.c+p.dir[1]*i===c){isFound=true;break;}}if(isFound)break;
+}}
+if(!isFound){
+ctx.fillStyle="#e6eefc";ctx.font="14px monospace";ctx.textAlign="center";
+ctx.fillText(grid[r][c],c*TS+TS/2,r*TS+TS/2+5);
+}
+}
+}
+
+function solveNext(){
+if(solveIdx>=placed.length){document.getElementById("status").textContent="ALL SOLVED!";return;}
+let p=placed[solveIdx];
+// Simulate scanning grid in all 8 directions to find this word
+for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){
+for(let d of DIRS){
+let er=r+d[0]*(p.word.length-1),ec=c+d[1]*(p.word.length-1);
+if(er<0||er>=GRID||ec<0||ec>=GRID)continue;
+let match=true;
+for(let i=0;i<p.word.length;i++){if(grid[r+d[0]*i][c+d[1]*i]!==p.word[i]){match=false;break;}}
+if(match){
+foundWords.add(p.word);
+draw();
+let wi=document.getElementById("wi_"+solveIdx);
+if(wi)wi.className="witem found";
+document.getElementById("found").textContent=foundWords.size;
+break;
+}
+}
+}
+solveIdx++;
+if(solveIdx<placed.length)timer=setTimeout(solveNext,250);
+else document.getElementById("status").textContent="ALL SOLVED!";
+}
+
+function buildCatButtons(){
+let html="";
+for(let cat in CATEGORIES){
+html+='<button class="btn'+(cat===curCat?" active":"")+'" data-cat="'+cat+'">'+cat+'</button>';
+}
+document.getElementById("catbtns").innerHTML=html;
+document.querySelectorAll("#catbtns .btn").forEach(b=>{
+b.onclick=()=>{if(timer)clearTimeout(timer);curCat=b.dataset.cat;buildCatButtons();init(curCat);};
+});
+}
+
+document.getElementById("solve").onclick=()=>{
+if(timer)clearTimeout(timer);
+document.getElementById("status").textContent="Solving...";
+solveIdx=0;foundWords=new Set();renderWordList();draw();solveNext();
+};
+document.getElementById("newp").onclick=()=>{
+if(timer)clearTimeout(timer);
+init(curCat);
+};
+
+buildCatButtons();
+init("Animals");
+setTimeout(()=>{document.getElementById("status").textContent="Solving...";solveNext();},800);
+</script>
+</body></html>
