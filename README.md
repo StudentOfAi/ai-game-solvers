@@ -34,23 +34,38 @@ GUI window with 14×14 grid. Words revealed one at a time:
 
 Controls: R (new puzzle)
 
+### HTML Snake — BFS Pathfinding & Canvas State Mechanics
+**Run:** `open html-snake-engine/index.html`
+
+Browser-based snake game with 0-player AI auto-pilot:
+- **BFS pathfinding:** Shortest path to food each tick, body-avoidance
+- **Flood-fill survival:** When no path to food, picks direction with most open space
+- **Stage progression:** Exponential speed curve per stage
+- **Procedural audio:** Web Audio API kick/snare/hi-hat synthesis
+
+Controls: Arrows/WASD (move) · 0 (AI Auto-Pilot) · Esc (pause) · End (wrap) · Home (restart) · M (mute)
+
 ## Quick Start
 
 ```bash
 git clone https://github.com/StudentOfAi/ai-game-solvers.git
 cd ai-game-solvers
 
-# Any of these pop up a window immediately:
+# Python solvers (pop up a window):
 python3 minesweeper-solver/minesweeper_solver.py
 python3 pacman-ai/pacman_ai.py
 python3 wordsearch-solver/wordsearch_solver.py
+
+# Browser-based snake (no dependencies):
+open html-snake-engine/index.html
 ```
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.9+ (for minesweeper, pacman, wordsearch)
 - tkinter (included with macOS Python — no pip install needed)
-- No external packages — pure stdlib
+- Any modern browser (for HTML snake — no build step, no server)
+- No external packages — pure stdlib + vanilla JS
 
 ## Architecture
 
@@ -62,6 +77,8 @@ ai-game-solvers/
 │   └── pacman_ai.py             — A* + ghost FSM, tkinter canvas
 ├── wordsearch-solver/
 │   └── wordsearch_solver.py     — KMP + brute-force, tkinter canvas
+├── html-snake-engine/
+│   └── index.html               — BFS pathfinding, canvas rendering, Web Audio
 ├── LICENSE
 ├── README.md
 └── requirements.txt
@@ -74,6 +91,7 @@ ai-game-solvers/
 | Minesweeper | CSP + Probability | Constraint propagation, mine inference, flood fill |
 | Pac-Man | A* + State Machines | Manhattan heuristic, BFS ghost navigation, FSM transitions |
 | Word Search | KMP + Brute-force | Failure function, 8-directional line extraction, benchmark |
+| HTML Snake | BFS + Flood-fill | Shortest-path to food, open-space survival heuristic, canvas rendering |
 
 ## License
 

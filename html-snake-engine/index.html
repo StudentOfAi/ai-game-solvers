@@ -1,0 +1,75 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Cursor Snake</title>
+<style>html,body{height:100%}body{margin:0;background:#0b1020;color:#e6eefc;font-family:Inter,system-ui,Segoe UI,Roboto,Arial}#hud{position:fixed;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;gap:8px;font-size:14px;color:#a7b2cc}.label{color:#e6eefc;font-weight:600;margin-right:6px}#stage{color:#a7b2cc;font-size:13px;text-align:center;position:fixed;top:34px;left:0;right:0}.wrap{display:flex;justify-content:center;align-items:center;min-height:100%}.board{display:grid;gap:12px}.game{width:640px;height:640px;background:linear-gradient(180deg,rgba(18,26,52,.9),rgba(18,26,52,.6));border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.04)}.hint{margin-top:8px;text-align:center;color:#a7b2cc;font-size:12px}.overlay{position:fixed;inset:0;background:rgba(2,5,12,.65);display:none;place-items:center}.overlay.show{display:grid}.menu{background:#121a34;border-radius:12px;padding:16px;box-shadow:0 24px 80px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.06)}.menu h2{margin:0 0 8px 0}.menu .row{margin:6px 0}.btn{background:#1a2547;color:#e6eefc;border:none;border-radius:10px;padding:8px 12px;cursor:pointer}.btn:hover{filter:brightness(1.1)}</style></head>
+<body><div id="hud"><div><span class="label">Score:</span><span id="score">0</span> <span class="label" style="margin-left:10px">High:</span><span id="high">0</span></div><div>Cursor Snake</div><div><span class="label">Wrap:</span><span id="wrap">off</span></div><div><span class="label">AI:</span><span id="aimode">off</span></div></div><div id="stage">Stage 1</div>
+<div class="wrap"><div class="board"><canvas id="cv" class="game" width="640" height="640"></canvas><div class="hint">Arrows/WASD to move • 0: AI Auto-Pilot • Esc: pause • End: toggle wrap • Home: restart • M: mute</div></div></div>
+<div id="ov" class="overlay"><div class="menu"><h2 id="ovt">Paused</h2><div class="row"><button id="resume" class="btn">Resume</button> <button id="restart" class="btn">Restart</button></div></div></div>
+<script>(function(){const GRID=20;const cv=document.getElementById("cv");const ctx=cv.getContext("2d");const scoreEl=document.getElementById("score");const highEl=document.getElementById("high");const wrapEl=document.getElementById("wrap");const stageEl=document.getElementById("stage");const ov=document.getElementById("ov");const ovt=document.getElementById("ovt");document.getElementById("resume").onclick=()=>togglePause(false);document.getElementById("restart").onclick=restart;let state={snake:[{x:10,y:10}],dir:{x:1,y:0},queued:{x:1,y:0},food:[],score:0,high:parseInt(localStorage.getItem("cursorSnakeHigh")||"0"),wrap:false,paused:false,over:false,stage:1,msPerStep:400,acc:0,last:0,pending:0,ai:false};function setStage(s){state.stage=s;const speed=2.5+(s-1)*0.5;state.msPerStep=Math.floor(1000/Math.max(1.5,Math.min(7,speed)));stageEl.textContent="Stage "+s;}setStage(1);spawnFood();updateHUD();window.addEventListener("keydown",(e)=>{const k=e.key.toLowerCase();if(k==='w'||k==='arrowup') turn(0,-1); else if(k==='s'||k==='arrowdown') turn(0,1); else if(k==='a'||k==='arrowleft') turn(-1,0); else if(k==='d'||k==='arrowright') turn(1,0); else if(k==='escape') togglePause(); else if(k==='end'){state.wrap=!state.wrap;wrapEl.textContent=state.wrap?"on":"off";} else if(k==='home') restart(); else if(k==='0'){state.ai=!state.ai;document.getElementById('aimode').textContent=state.ai?'ON':'off';}});function turn(x,y){if(state.dir.x+x===0 && state.dir.y+y===0) return; state.queued={x,y};}function togglePause(force){const v=force!==undefined?force:!state.paused;state.paused=v;ov.classList.toggle("show",v);ovt.textContent=state.over?"Game Over":"Paused";}function restart(){state={...state,snake:[{x:10,y:10}],dir:{x:1,y:0},queued:{x:1,y:0},food:[],score:0,paused:false,over:false,stage:1,acc:0,last:0,pending:0,ai:false};setStage(1);spawnFood();updateHUD();ov.classList.remove("show");}function spawnFood(){const occ=new Set(state.snake.map(s=>s.x+","+s.y));let x=0,y=0;for(let i=0;i<400;i++){x=Math.floor(Math.random()*GRID);y=Math.floor(Math.random()*GRID);if(!occ.has(x+","+y)) break;}state.food=[{x,y}];}
+function bfsPath(){
+  const head=state.snake[0];
+  const food=state.food[0];
+  if(!food) return null;
+  const occupied=new Set(state.snake.map(s=>s.x+','+s.y));
+  const queue=[[head.x,head.y,[]]];
+  const visited=new Set([head.x+','+head.y]);
+  while(queue.length){
+    const [x,y,path]=queue.shift();
+    if(x===food.x && y===food.y) return path;
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+    for(const [dx,dy] of dirs){
+      let nx=x+dx, ny=y+dy;
+      if(state.wrap){nx=(nx+GRID)%GRID; ny=(ny+GRID)%GRID;}
+      const key=nx+','+ny;
+      if(nx<0||ny<0||nx>=GRID||ny>=GRID) continue;
+      if(visited.has(key)) continue;
+      if(occupied.has(key) && !(nx===state.snake[state.snake.length-1].x && ny===state.snake[state.snake.length-1].y)) continue;
+      visited.add(key);
+      queue.push([nx,ny,[...path,{x:dx,y:dy}]]);
+    }
+  }
+  return null;
+}
+
+function floodFill(sx,sy,dx,dy){
+  let nx=sx+dx, ny=sy+dy;
+  if(state.wrap){nx=(nx+GRID)%GRID; ny=(ny+GRID)%GRID;}
+  if(nx<0||ny<0||nx>=GRID||ny>=GRID) return -1;
+  const body=new Set(state.snake.map(s=>s.x+','+s.y));
+  if(body.has(nx+','+ny) && !(nx===state.snake[state.snake.length-1].x && ny===state.snake[state.snake.length-1].y)) return -1;
+  const visited=new Set();
+  const stack=[[nx,ny]];
+  while(stack.length){
+    const [x,y]=stack.pop();
+    const key=x+','+y;
+    if(visited.has(key)) continue;
+    if(body.has(key) && !(x===state.snake[state.snake.length-1].x && y===state.snake[state.snake.length-1].y)) continue;
+    visited.add(key);
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+    for(const [ddx,ddy] of dirs){
+      let qx=x+ddx, qy=y+ddy;
+      if(state.wrap){qx=(qx+GRID)%GRID; qy=(qy+GRID)%GRID;}
+      if(qx<0||qy<0||qx>=GRID||qy>=GRID) continue;
+      if(!visited.has(qx+','+qy)) stack.push([qx,qy]);
+    }
+  }
+  return visited.size;
+}
+
+function autopilot(){
+  if(!state.ai || state.paused || state.over) return;
+  const head=state.snake[0];
+  const path=bfsPath();
+  if(path && path.length>0){
+    state.queued=path[0];
+    return;
+  }
+  const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+  let best=null, bestScore=-1;
+  for(const [dx,dy] of dirs){
+    if(state.dir.x+dx===0 && state.dir.y+dy===0) continue;
+    const space=floodFill(head.x,head.y,dx,dy);
+    if(space>bestScore){bestScore=space; best={x:dx,y:dy};}
+  }
+  if(best) state.queued=best;
+}
+function step(){state.dir=state.queued;const head=state.snake[0];let nx=head.x+state.dir.x, ny=head.y+state.dir.y;if(state.wrap){nx=(nx+GRID)%GRID;ny=(ny+GRID)%GRID;} else { if(nx<0||ny<0||nx>=GRID||ny>=GRID){return gameOver();}} if(state.snake.some(s=>s.x===nx&&s.y===ny)) return gameOver(); state.snake.unshift({x:nx,y:ny});for(let i=0;i<state.food.length;i++){const f=state.food[i]; if(f.x===nx&&f.y===ny){state.pending++;state.score+=10;state.food.splice(i,1);spawnFood();break;}} if(state.pending>0){state.pending--; } else { state.snake.pop(); } if(state.score>=state.stage*120){setStage(state.stage+1);} updateHUD();}function gameOver(){state.over=true;state.paused=true;ovt.textContent="Game Over";ov.classList.add("show");state.high=Math.max(state.high,state.score);localStorage.setItem("cursorSnakeHigh",String(state.high));}function updateHUD(){scoreEl.textContent=String(state.score);highEl.textContent=String(Math.max(state.high,state.score));wrapEl.textContent=state.wrap?"on":"off";}function draw(){const tile=cv.width/GRID;ctx.clearRect(0,0,cv.width,cv.height);ctx.strokeStyle="rgba(255,255,255,.06)";for(let i=0;i<=GRID;i++){ctx.beginPath();ctx.moveTo(i*tile+.5,0);ctx.lineTo(i*tile+.5,cv.height);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*tile+.5);ctx.lineTo(cv.width,i*tile+.5);ctx.stroke();}ctx.fillStyle="#59ffa1";for(const f of state.food){ctx.beginPath();ctx.arc(f.x*tile+tile/2,f.y*tile+tile/2,tile*.28,0,Math.PI*2);ctx.fill();}ctx.fillStyle="#70b5ff";for(let i=state.snake.length-1;i>=1;i--){const s=state.snake[i];ctx.globalAlpha=.35+.4*(i/state.snake.length);ctx.fillRect(s.x*tile+4,s.y*tile+4,tile-8,tile-8);}ctx.globalAlpha=1;const h=state.snake[0];const cx=h.x*tile+tile/2, cy=h.y*tile+tile/2, size=tile*.42;ctx.save();let ang=0; if(state.dir.x===0&&state.dir.y===-1) ang=-Math.PI/2; else if(state.dir.x===0&&state.dir.y===1) ang=Math.PI/2; else if(state.dir.x===-1) ang=Math.PI; ctx.translate(cx,cy);ctx.rotate(ang);ctx.fillStyle="#cfe3ff";ctx.beginPath();ctx.moveTo(size,0);ctx.lineTo(-size*.6,-size*.7);ctx.lineTo(-size*.2,0);ctx.lineTo(-size*.6,size*.7);ctx.closePath();ctx.fill();ctx.restore();}function loop(t){if(!state.last) state.last=t; const dt=t-state.last; state.last=t; if(!state.paused&&!state.over){state.acc+=dt; while(state.acc>=state.msPerStep){state.acc-=state.msPerStep; autopilot(); step();}} draw(); requestAnimationFrame(loop);}requestAnimationFrame(loop);}());</script>
+<script>(function(){var a,c,m,st=0,started=false,muted=false;function ensure(){if(!a){a=new (window.AudioContext||window.webkitAudioContext)();c=a.createGain();c.gain.value=muted?0:0.2;c.connect(a.destination);}}function kick(t){var o=a.createOscillator();var g=a.createGain();o.type='sine';o.frequency.setValueAtTime(120,t);o.frequency.exponentialRampToValueAtTime(50,t+0.12);g.gain.setValueAtTime(1,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.12);o.connect(g);g.connect(c);o.start(t);o.stop(t+0.12);}function snare(t){var d=0.12;var b=a.createBuffer(1,a.sampleRate*d,a.sampleRate);var y=b.getChannelData(0);for(var i=0;i<y.length;i++){y[i]=(Math.random()*2-1)*Math.pow(1-i/y.length,2);}var src=a.createBufferSource();src.buffer=b;var g=a.createGain();g.gain.setValueAtTime(0.5,t);g.gain.exponentialRampToValueAtTime(0.001,t+d);src.connect(g);g.connect(c);src.start(t);}function hat(t){var d=0.04;var b=a.createBuffer(1,a.sampleRate*d,a.sampleRate);var y=b.getChannelData(0);for(var i=0;i<y.length;i++){y[i]=(Math.random()*2-1)*(1-i/y.length);}var src=a.createBufferSource();src.buffer=b;var hp=a.createBiquadFilter();hp.type='highpass';hp.frequency.value=6000;var g=a.createGain();g.gain.setValueAtTime(0.25,t);g.gain.exponentialRampToValueAtTime(0.001,t+d);src.connect(hp);hp.connect(g);g.connect(c);src.start(t);}function begin(){ensure();if(m) return; m=setInterval(function(){var t=a.currentTime;var s=st%16;if(s===0||s===8)kick(t);if(s===4||s===12)snare(t);if(s%2===0)hat(t);st++;},125);}window.addEventListener('keydown',function(ev){if(!started){started=true;ensure();begin();}if(ev.key&&ev.key.toLowerCase()==='m'){muted=!muted;ensure();c.gain.value=muted?0:0.2;}});})();</script></body></html>
